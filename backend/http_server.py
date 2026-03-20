@@ -117,6 +117,15 @@ def _record_latency(latency_ms: float) -> None:
     REQUEST_METRICS["avg_latency_ms"] = ((prev_avg * (total - 1)) + latency_ms) / total
 
 
+def _fallback_to_memory(reason: str) -> None:
+    global STORE
+    if isinstance(STORE, InMemoryTicketStore):
+        return
+    logger.error("storage_backend_runtime_failure detail=%s", reason)
+    STORE = InMemoryTicketStore()
+    logger.warning("storage_backend_fallback=%s", STORE.__class__.__name__)
+
+
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
     response = await call_next(request)
@@ -147,7 +156,11 @@ def home() -> FileResponse:
 
 @app.get("/api/tickets", response_model=list[TicketRecordModel])
 def list_tickets() -> list[dict[str, Any]]:
-    return STORE.list_tickets(limit=200)
+    try:
+        return STORE.list_tickets(limit=200)
+    except Exception as exc:  # noqa: BLE001
+        _fallback_to_memory(str(exc))
+        return STORE.list_tickets(limit=200)
 
 
 @app.post("/api/tickets", response_model=TicketRecordModel)
@@ -194,16 +207,29 @@ async def create_ticket(
             image_bytes=image_bytes,
             image_mime_type=image_mime_type,
         )
-        record = STORE.save_ticket(
-            latitude=lat,
-            longitude=lng,
-            ticket=ticket.model_dump(),
-            gemini_trace=trace.model_dump(),
-            complaint_text=complaint_text.strip(),
-            reporter_id=reporter_id,
-            image_bytes=image_bytes,
-            image_mime_type=image_mime_type,
-        )
+        try:
+            record = STORE.save_ticket(
+                latitude=lat,
+                longitude=lng,
+                ticket=ticket.model_dump(),
+                gemini_trace=trace.model_dump(),
+                complaint_text=complaint_text.strip(),
+                reporter_id=reporter_id,
+                image_bytes=image_bytes,
+                image_mime_type=image_mime_type,
+            )
+        except Exception as store_exc:  # noqa: BLE001
+            _fallback_to_memory(str(store_exc))
+            record = STORE.save_ticket(
+                latitude=lat,
+                longitude=lng,
+                ticket=ticket.model_dump(),
+                gemini_trace=trace.model_dump(),
+                complaint_text=complaint_text.strip(),
+                reporter_id=reporter_id,
+                image_bytes=image_bytes,
+                image_mime_type=image_mime_type,
+            )
         REQUEST_METRICS["tickets_created"] += 1
     except ValueError as exc:
         REQUEST_METRICS["validation_errors"] += 1
