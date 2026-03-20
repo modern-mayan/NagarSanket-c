@@ -126,7 +126,10 @@ class FirestoreTicketStore:
         created_at = datetime.now(UTC).isoformat()
         image_url = None
         if image_bytes:
-            image_url = self._upload_image(ticket_id=ticket_id, image_bytes=image_bytes, image_mime_type=image_mime_type)
+            try:
+                image_url = self._upload_image(ticket_id=ticket_id, image_bytes=image_bytes, image_mime_type=image_mime_type)
+            except Exception:
+                image_url = None
 
         record = {
             "id": ticket_id,
