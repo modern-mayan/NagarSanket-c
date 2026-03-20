@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CivicPulse: NagarSanket</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <style>
+      :root {
+        --bg-a: #fff8ef;
+        --bg-b: #e7f6f2;
+        --ink: #142029;
+        --ink-soft: #4c5d68;
+        --brand: #1c7f71;
+        --brand-2: #0f5f54;
+        --alert-hi: #df7b1a;
+        --alert-crit: #d0392f;
+      }
+
+      body {
+        font-family: "Manrope", sans-serif;
+        color: var(--ink);
+        background: radial-gradient(circle at 15% 10%, #fff4e4 0%, transparent 40%),
+          radial-gradient(circle at 85% 5%, #dff2eb 0%, transparent 35%), linear-gradient(160deg, var(--bg-a), var(--bg-b));
+        min-height: 100vh;
+      }
+
+      .headline {
+        font-family: "Space Grotesk", sans-serif;
+      }
+
+      #map {
+        min-height: 300px;
+      }
+
+      .voice-pulse {
+        animation: pulse 1s ease-in-out infinite;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 0 rgba(220, 52, 44, 0.3);
+        }
+        50% {
+          transform: scale(1.04);
+          box-shadow: 0 0 0 10px rgba(220, 52, 44, 0);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .voice-pulse {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-8 pt-6">
+      <section class="mb-5 rounded-3xl border border-white/70 bg-white/75 p-5 shadow-lg backdrop-blur">
+        <p class="text-xs font-semibold uppercase tracking-[0.25em] text-teal-700">CivicPulse</p>
+        <h1 class="headline mt-1 text-2xl font-bold leading-tight">NagarSanket</h1>
+        <p class="mt-2 text-sm text-slate-600">
+          Smart hazard triage for faster municipal action.
+        </p>
+      </section>
+
+      <a href="#view-report" class="sr-only focus:not-sr-only">Skip to report form</a>
+
+      <nav class="mb-5 grid grid-cols-2 gap-2 rounded-2xl bg-white/80 p-1.5 shadow-sm" role="tablist" aria-label="Main views">
+        <button
+          id="tab-report"
+          role="tab"
+          aria-selected="true"
+          aria-controls="view-report"
+          class="rounded-xl bg-teal-700 px-3 py-2 text-sm font-semibold text-white transition"
+          type="button"
+        >
+          Report Hazard
+        </button>
+        <button
+          id="tab-dashboard"
+          role="tab"
+          aria-selected="false"
+          aria-controls="view-dashboard"
+          class="rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 transition"
+          type="button"
+        >
+          Dashboard
+        </button>
+      </nav>
+
+      <section id="view-report" role="tabpanel" aria-labelledby="tab-report" class="space-y-4">
+        <div class="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-md">
+          <h2 class="headline text-lg font-bold">Report a Hazard</h2>
+          <p class="mt-1 text-xs text-slate-600">Upload an image and describe what happened.</p>
+
+          <label
+            for="image-input"
+            class="mt-4 block cursor-pointer rounded-2xl border-2 border-dashed border-teal-300 bg-teal-50/60 p-4 text-center transition hover:bg-teal-50"
+          >
+            <input id="image-input" type="file" accept="image/*" class="hidden" />
+            <p class="headline text-sm font-bold text-teal-900">Tap to upload hazard photo</p>
+            <p class="mt-1 text-xs text-teal-800/80">PNG/JPG/WebP supported</p>
+            <img id="image-preview" class="mx-auto mt-3 hidden max-h-44 rounded-xl shadow-sm" alt="Preview" />
+          </label>
+
+          <div class="mt-4">
+            <label for="complaint-input" class="mb-2 block text-sm font-semibold text-slate-800">
+              Complaint (Hinglish / Hindi / English)
+            </label>
+            <div class="flex items-start gap-2">
+              <textarea
+                id="complaint-input"
+                rows="5"
+                aria-describedby="complaint-helper"
+                class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none ring-teal-500 transition focus:ring-2"
+                placeholder="Example: DLF phase 3 me gali ke beech manhole khula hai, bachche khel rahe hain..."
+              ></textarea>
+              <button
+                id="voice-btn"
+                type="button"
+                aria-pressed="false"
+                class="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-xs font-bold text-rose-700 transition hover:bg-rose-100"
+                aria-label="Start voice capture"
+              >
+                Mic
+              </button>
+            </div>
+            <p id="voice-status" class="mt-2 text-xs text-slate-500">Voice input ready.</p>
+          </div>
+
+          <p id="complaint-helper" class="mt-2 text-xs text-slate-500">
+            Tip: mention nearby landmarks like school, metro gate, or block name for faster response routing.
+          </p>
+
+          <div class="mt-4 rounded-xl bg-slate-50 px-3 py-2">
+            <p class="text-xs font-medium text-slate-700">Geotag status</p>
+            <p id="geo-status" class="text-xs text-slate-500">Coordinates will be captured on submit.</p>
+            <p id="geo-coords" class="mt-1 text-xs text-slate-600">No live coordinates captured yet.</p>
+            <p id="geo-debug" class="mt-1 text-[11px] text-slate-500">Geolocation diagnostics will appear here.</p>
+            <div class="mt-2 flex items-center gap-2">
+              <button
+                id="geo-btn"
+                type="button"
+                class="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Detect Location Now
+              </button>
+            </div>
+            <div class="mt-2 grid grid-cols-2 gap-2">
+              <input
+                id="manual-lat"
+                type="number"
+                step="0.000001"
+                placeholder="Manual lat"
+                class="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
+              />
+              <input
+                id="manual-lng"
+                type="number"
+                step="0.000001"
+                placeholder="Manual lng"
+                class="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
+              />
+            </div>
+          </div>
+
+          <button
+            id="submit-btn"
+            type="button"
+            class="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-teal-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-teal-800"
+          >
+            <span id="submit-spinner" class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+            <span>Generate Civic Action Ticket</span>
+          </button>
+          <p id="app-status" class="mt-3 text-xs text-slate-600" role="status" aria-live="polite">
+            Ready to submit.
+          </p>
+        </div>
+      </section>
+
+      <section id="view-dashboard" role="tabpanel" aria-labelledby="tab-dashboard" class="hidden space-y-4">
+        <div class="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-md">
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="headline text-lg font-bold">Municipal Dashboard</h2>
+            <span id="marker-count" class="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+              >0 markers</span
+            >
+          </div>
+          <div id="map" aria-label="Ticket map" class="overflow-hidden rounded-2xl border border-slate-200"></div>
+        </div>
+
+        <div id="ticket-card" class="rounded-3xl border border-white/70 bg-white/85 p-4 shadow-md">
+          <p class="text-sm text-slate-500">No ticket generated yet.</p>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const DEFAULT_MAP_CENTER = { lat: 20.5937, lng: 78.9629 };
+      const GEO_TIMEOUT_MS = 15000;
+      const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+      const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
+      const tabReport = document.getElementById("tab-report");
+      const tabDashboard = document.getElementById("tab-dashboard");
+      const viewReport = document.getElementById("view-report");
+      const viewDashboard = document.getElementById("view-dashboard");
+      const imageInput = document.getElementById("image-input");
+      const imagePreview = document.getElementById("image-preview");
+      const complaintInput = document.getElementById("complaint-input");
+      const voiceBtn = document.getElementById("voice-btn");
+      const voiceStatus = document.getElementById("voice-status");
+      const geoStatus = document.getElementById("geo-status");
+      const geoCoords = document.getElementById("geo-coords");
+      const geoDebug = document.getElementById("geo-debug");
+      const geoBtn = document.getElementById("geo-btn");
+      const manualLat = document.getElementById("manual-lat");
+      const manualLng = document.getElementById("manual-lng");
+      const submitBtn = document.getElementById("submit-btn");
+      const submitSpinner = document.getElementById("submit-spinner");
+      const ticketCard = document.getElementById("ticket-card");
+      const markerCount = document.getElementById("marker-count");
+      const appStatus = document.getElementById("app-status");
+      let currentPreviewUrl = null;
+      let latestGeo = null;
+
+      const map = L.map("map", { zoomControl: false }).setView([DEFAULT_MAP_CENTER.lat, DEFAULT_MAP_CENTER.lng], 5);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
+      L.control.zoom({ position: "bottomright" }).addTo(map);
+
+      const markers = [];
+
+      function setAppStatus(message, isError = false) {
+        appStatus.textContent = message;
+        appStatus.classList.toggle("text-rose-700", isError);
+        appStatus.classList.toggle("text-slate-600", !isError);
+      }
+
+      function formatGeoError(error) {
+        if (!error) return "unknown";
+        if (typeof error === "string") return error;
+        const codeToText = {
+          1: "PERMISSION_DENIED",
+          2: "POSITION_UNAVAILABLE",
+          3: "TIMEOUT",
+        };
+        const codeText = codeToText[error.code] || "UNKNOWN";
+        return `${codeText}${error.message ? `: ${error.message}` : ""}`;
+      }
+
+      function setActiveTab(tab) {
+        const isReport = tab === "report";
+        viewReport.classList.toggle("hidden", !isReport);
+        viewDashboard.classList.toggle("hidden", isReport);
+        viewReport.setAttribute("aria-hidden", String(!isReport));
+        viewDashboard.setAttribute("aria-hidden", String(isReport));
+        tabReport.setAttribute("aria-selected", String(isReport));
+        tabDashboard.setAttribute("aria-selected", String(!isReport));
+        tabReport.classList.toggle("bg-teal-700", isReport);
+        tabReport.classList.toggle("text-white", isReport);
+        tabReport.classList.toggle("text-slate-700", !isReport);
+        tabDashboard.classList.toggle("bg-teal-700", !isReport);
+        tabDashboard.classList.toggle("text-white", !isReport);
+        tabDashboard.classList.toggle("text-slate-700", isReport);
+        tabReport.tabIndex = isReport ? 0 : -1;
+        tabDashboard.tabIndex = !isReport ? 0 : -1;
+        if (!isReport) {
+          setTimeout(() => map.invalidateSize(), 150);
+        }
+      }
+
+      tabReport.addEventListener("click", () => setActiveTab("report"));
+      tabDashboard.addEventListener("click", () => setActiveTab("dashboard"));
+      tabReport.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowRight") {
+          tabDashboard.focus();
+          setActiveTab("dashboard");
+        }
+      });
+      tabDashboard.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowLeft") {
+          tabReport.focus();
+          setActiveTab("report");
+        }
+      });
+
+      imageInput.addEventListener("change", (event) => {
+        const [file] = event.target.files || [];
+        if (!file) {
+          if (currentPreviewUrl) {
+            URL.revokeObjectURL(currentPreviewUrl);
+            currentPreviewUrl = null;
+          }
+          imagePreview.classList.add("hidden");
+          imagePreview.src = "";
+          return;
+        }
+
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+          setAppStatus("Unsupported image format. Use JPG, PNG, or WebP.", true);
+          imageInput.value = "";
+          return;
+        }
+        if (file.size > MAX_IMAGE_BYTES) {
+          setAppStatus("Image is too large. Maximum size is 5 MB.", true);
+          imageInput.value = "";
+          return;
+        }
+
+        if (currentPreviewUrl) {
+          URL.revokeObjectURL(currentPreviewUrl);
+        }
+        currentPreviewUrl = URL.createObjectURL(file);
+        imagePreview.src = currentPreviewUrl;
+        imagePreview.classList.remove("hidden");
+        setAppStatus("Image selected successfully.");
+      });
+
+      function setupSpeechRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          voiceStatus.textContent = "Voice input not supported in this browser.";
+          voiceBtn.disabled = true;
+          voiceBtn.classList.add("opacity-50", "cursor-not-allowed");
+          setAppStatus("Voice input is not available in this browser.", true);
+          return null;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = "hi-IN";
+        recognition.interimResults = true;
+        recognition.continuous = false;
+
+        let listening = false;
+
+        recognition.onstart = () => {
+          listening = true;
+          voiceBtn.classList.add("voice-pulse");
+          voiceBtn.setAttribute("aria-pressed", "true");
+          voiceStatus.textContent = "Listening... speak now.";
+          setAppStatus("Listening for voice complaint...");
+        };
+
+        recognition.onresult = (event) => {
+          let finalTranscript = "";
+          for (let i = event.resultIndex; i < event.results.length; i += 1) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript;
+            }
+          }
+          if (finalTranscript.trim()) {
+            complaintInput.value = `${complaintInput.value} ${finalTranscript}`.trim();
+            voiceStatus.textContent = "Voice captured and added to complaint.";
+            setAppStatus("Voice complaint captured.");
+          }
+        };
+
+        recognition.onerror = (event) => {
+          voiceStatus.textContent = `Voice error: ${event.error}`;
+          setAppStatus(`Voice capture error: ${event.error}`, true);
+        };
+
+        recognition.onend = () => {
+          listening = false;
+          voiceBtn.classList.remove("voice-pulse");
+          voiceBtn.setAttribute("aria-pressed", "false");
+          if (!voiceStatus.textContent.startsWith("Voice")) {
+            voiceStatus.textContent = "Voice input ready.";
+          }
+        };
+
+        voiceBtn.addEventListener("click", () => {
+          if (!listening) {
+            recognition.start();
+          } else {
+            recognition.stop();
+          }
+        });
+
+        return recognition;
+      }
+
+      setupSpeechRecognition();
+
+      function requestPosition(options) {
+        return new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, options);
+        });
+      }
+
+      async function getGeolocation() {
+        if (!window.isSecureContext) {
+          return { lat: null, lng: null, source: "unavailable", error: "insecure_context" };
+        }
+        if (!navigator.geolocation) {
+          return { lat: null, lng: null, source: "unavailable", error: "geolocation_not_supported" };
+        }
+
+        let permissionState = "unknown";
+        if (navigator.permissions && navigator.permissions.query) {
+          try {
+            const permission = await navigator.permissions.query({ name: "geolocation" });
+            permissionState = permission.state;
+          } catch (_) {
+            permissionState = "unavailable";
+          }
+        }
+
+        try {
+          const coarse = await requestPosition({
+            enableHighAccuracy: false,
+            timeout: GEO_TIMEOUT_MS,
+            maximumAge: 600000,
+          });
+          return {
+            lat: coarse.coords.latitude,
+            lng: coarse.coords.longitude,
+            source: "coarse",
+            accuracy_meters: coarse.coords.accuracy,
+            permission_state: permissionState,
+          };
+        } catch (coarseError) {
+          try {
+            const precise = await requestPosition({
+              enableHighAccuracy: true,
+              timeout: GEO_TIMEOUT_MS,
+              maximumAge: 0,
+            });
+            return {
+              lat: precise.coords.latitude,
+              lng: precise.coords.longitude,
+              source: "live",
+              accuracy_meters: precise.coords.accuracy,
+              permission_state: permissionState,
+            };
+          } catch (error) {
+            return {
+              lat: null,
+              lng: null,
+              source: "unavailable",
+              error: formatGeoError(error),
+              coarse_error: formatGeoError(coarseError),
+              permission_state: permissionState,
+            };
+          }
+        }
+      }
+
+      function updateGeoUI(geo) {
+        if (!geo || geo.lat === null || geo.lng === null) {
+          geoStatus.textContent = "Could not capture live location.";
+          geoCoords.textContent = "No coordinates available. Use Detect Location or enter manual coordinates.";
+          geoDebug.textContent = `Debug: ${geo && geo.error ? geo.error : "unknown"}; permission=${geo && geo.permission_state ? geo.permission_state : "unknown"}`;
+          return;
+        }
+        if (geo.source === "live" || geo.source === "coarse") {
+          const accuracyText =
+            typeof geo.accuracy_meters === "number"
+              ? ` (accuracy ~${Math.round(geo.accuracy_meters)}m)`
+              : "";
+          geoStatus.textContent = geo.source === "live" ? "Live GPS captured." : "Approximate location captured.";
+          geoCoords.textContent = `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}${accuracyText}`;
+          geoDebug.textContent = `Debug: source=${geo.source}; permission=${geo.permission_state || "unknown"}`;
+          return;
+        }
+        geoStatus.textContent = "Location capture unavailable.";
+        geoCoords.textContent = "No live coordinates available.";
+        geoDebug.textContent = `Debug: ${geo && geo.error ? geo.error : "unknown"}`;
+      }
+
+      function parseManualCoordinates() {
+        const lat = Number(manualLat.value);
+        const lng = Number(manualLng.value);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          return null;
+        }
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+          return null;
+        }
+        return { lat, lng, source: "manual" };
+      }
+
+      function severityBadge(severity) {
+        const mapClass = {
+          low: "bg-emerald-100 text-emerald-800",
+          medium: "bg-amber-100 text-amber-800",
+          high: "bg-orange-100 text-orange-800",
+          critical: "bg-rose-100 text-rose-800",
+        };
+        return mapClass[severity] || "bg-slate-100 text-slate-800";
+      }
+
+      function escapeHtml(text) {
+        return text
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      function updateTicketCard(record) {
+        if (!record || !record.ticket) {
+          ticketCard.innerHTML = '<p class="text-sm text-slate-500">No ticket generated yet.</p>';
+          return;
+        }
+
+        const ticket = record.ticket;
+        ticketCard.innerHTML = `
+          <div class="flex items-start justify-between gap-2">
+            <h3 class="headline text-base font-bold">${escapeHtml(ticket.incident_title)}</h3>
+            <span class="rounded-full px-3 py-1 text-xs font-bold ${severityBadge(ticket.severity)}">
+              ${escapeHtml(ticket.severity.toUpperCase())}
+            </span>
+          </div>
+          <p class="mt-2 text-sm text-slate-700">${escapeHtml(ticket.public_risk_summary)}</p>
+          <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+            <div class="rounded-xl bg-slate-50 p-2"><span class="font-semibold">Hazard:</span> ${escapeHtml(ticket.hazard_type)}</div>
+            <div class="rounded-xl bg-slate-50 p-2"><span class="font-semibold">Escalation:</span> ${escapeHtml(ticket.escalation_level)}</div>
+            <div class="rounded-xl bg-slate-50 p-2"><span class="font-semibold">Confidence:</span> ${Number(ticket.confidence).toFixed(2)}</div>
+            <div class="rounded-xl bg-slate-50 p-2"><span class="font-semibold">Dept:</span> ${escapeHtml(ticket.responsible_department)}</div>
+          </div>
+          <div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+            <p><span class="font-semibold">Immediate action:</span> ${escapeHtml(ticket.immediate_citizen_action)}</p>
+            <p class="mt-2"><span class="font-semibold">Location:</span> ${escapeHtml(ticket.location_text)}</p>
+            <p class="mt-2"><span class="font-semibold">Coordinates:</span> ${record.latitude.toFixed(5)}, ${record.longitude.toFixed(5)}</p>
+          </div>
+        `;
+      }
+
+      function addMapMarker(record, panTo = true) {
+        const marker = L.marker([record.latitude, record.longitude]).addTo(map);
+        marker.bindPopup(
+          `<b>${escapeHtml(record.ticket.incident_title)}</b><br>${escapeHtml(record.ticket.hazard_type)} (${escapeHtml(
+            record.ticket.severity
+          )})`
+        );
+        markers.push(marker);
+        markerCount.textContent = `${markers.length} markers`;
+        if (panTo) {
+          map.setView([record.latitude, record.longitude], 15);
+        }
+      }
+
+      async function fetchExistingTickets() {
+        try {
+          const response = await fetch("/api/tickets");
+          if (!response.ok) return;
+          const records = await response.json();
+          records.forEach((record, idx) => addMapMarker(record, idx === records.length - 1));
+          if (records.length) {
+            updateTicketCard(records[records.length - 1]);
+            setAppStatus(`Loaded ${records.length} previous ticket(s).`);
+          }
+        } catch (_) {
+          // Non-fatal: UI still works with fresh submissions.
+          setAppStatus("Could not load previous tickets. You can still submit new reports.", true);
+        }
+      }
+
+      async function submitHazard() {
+        const complaintText = complaintInput.value.trim();
+        if (complaintText.length < 5) {
+          setAppStatus("Please enter a meaningful complaint before generating a ticket.", true);
+          complaintInput.focus();
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.setAttribute("aria-busy", "true");
+        submitSpinner.classList.remove("hidden");
+        geoStatus.textContent = "Capturing location...";
+        setAppStatus("Capturing location and generating ticket...");
+
+        const geo = await getGeolocation();
+        latestGeo = geo;
+        updateGeoUI(geo);
+        const manual = parseManualCoordinates();
+        const finalGeo = geo.lat !== null && geo.lng !== null ? geo : manual;
+        if (!finalGeo) {
+          setAppStatus("Location capture failed. Allow browser location or enter manual coordinates.", true);
+          submitBtn.disabled = false;
+          submitBtn.setAttribute("aria-busy", "false");
+          submitSpinner.classList.add("hidden");
+          return;
+        }
+        if (finalGeo.source === "manual") {
+          geoStatus.textContent = "Using manually entered coordinates.";
+          geoCoords.textContent = `${finalGeo.lat.toFixed(5)}, ${finalGeo.lng.toFixed(5)} (manual)`;
+        }
+
+        const payload = new FormData();
+        payload.append("complaint_text", complaintText);
+        payload.append("latitude", finalGeo.lat);
+        payload.append("longitude", finalGeo.lng);
+
+        const [imageFile] = imageInput.files || [];
+        if (imageFile) {
+          payload.append("image", imageFile);
+        }
+
+        try {
+          const response = await fetch("/api/tickets", {
+            method: "POST",
+            body: payload,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || "Ticket generation failed.");
+          }
+
+          const record = await response.json();
+          addMapMarker(record, true);
+          updateTicketCard(record);
+          setAppStatus("Ticket generated successfully.");
+          setActiveTab("dashboard");
+        } catch (error) {
+          setAppStatus(error.message || "An error occurred while generating the ticket.", true);
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.setAttribute("aria-busy", "false");
+          submitSpinner.classList.add("hidden");
+        }
+      }
+
+      submitBtn.addEventListener("click", submitHazard);
+      geoBtn.addEventListener("click", async () => {
+        geoStatus.textContent = "Detecting location...";
+        setAppStatus("Requesting browser location...");
+        const geo = await getGeolocation();
+        latestGeo = geo;
+        updateGeoUI(geo);
+        if (geo.lat === null || geo.lng === null) {
+          setAppStatus("Could not capture location. Please allow location permission in browser.", true);
+        } else {
+          manualLat.value = geo.lat.toFixed(6);
+          manualLng.value = geo.lng.toFixed(6);
+          setAppStatus("Location captured successfully.");
+        }
+      });
+      window.addEventListener("beforeunload", () => {
+        if (currentPreviewUrl) {
+          URL.revokeObjectURL(currentPreviewUrl);
+        }
+      });
+      setActiveTab("report");
+      fetchExistingTickets();
+    </script>
+  </body>
+</html>
