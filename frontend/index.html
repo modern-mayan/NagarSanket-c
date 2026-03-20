@@ -166,9 +166,9 @@
 
           <div class="mt-4 rounded-xl bg-slate-50 px-3 py-2">
             <p class="text-xs font-medium text-slate-700">Geotag status</p>
-            <p id="geo-status" class="text-xs text-slate-500">Coordinates will be captured on submit.</p>
-            <p id="geo-coords" class="mt-1 text-xs text-slate-600">No live coordinates captured yet.</p>
-            <p id="geo-debug" class="mt-1 text-[11px] text-slate-500">Geolocation diagnostics will appear here.</p>
+            <p id="geo-status" class="text-xs text-slate-500" role="status" aria-live="polite">Coordinates will be captured on submit.</p>
+            <p id="geo-coords" class="mt-1 text-xs text-slate-600" role="status" aria-live="polite">No live coordinates captured yet.</p>
+            <p id="geo-debug" class="mt-1 text-[11px] text-slate-500" role="status" aria-live="polite">Geolocation diagnostics will appear here.</p>
             <div class="mt-2 flex items-center gap-2">
               <button
                 id="geo-btn"
@@ -178,22 +178,7 @@
                 Detect Location Now
               </button>
             </div>
-            <div class="mt-2 grid grid-cols-2 gap-2">
-              <input
-                id="manual-lat"
-                type="number"
-                step="0.000001"
-                placeholder="Manual lat"
-                class="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
-              />
-              <input
-                id="manual-lng"
-                type="number"
-                step="0.000001"
-                placeholder="Manual lng"
-                class="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
-              />
-            </div>
+
           </div>
 
           <button
@@ -246,8 +231,6 @@
       const geoCoords = document.getElementById("geo-coords");
       const geoDebug = document.getElementById("geo-debug");
       const geoBtn = document.getElementById("geo-btn");
-      const manualLat = document.getElementById("manual-lat");
-      const manualLng = document.getElementById("manual-lng");
       const submitBtn = document.getElementById("submit-btn");
       const submitSpinner = document.getElementById("submit-spinner");
       const ticketCard = document.getElementById("ticket-card");
@@ -483,7 +466,7 @@
       function updateGeoUI(geo) {
         if (!geo || geo.lat === null || geo.lng === null) {
           geoStatus.textContent = "Could not capture live location.";
-          geoCoords.textContent = "No coordinates available. Use Detect Location or enter manual coordinates.";
+          geoCoords.textContent = "No coordinates available. Use Detect Location.";
           geoDebug.textContent = `Debug: ${geo && geo.error ? geo.error : "unknown"}; permission=${geo && geo.permission_state ? geo.permission_state : "unknown"}`;
           return;
         }
@@ -502,17 +485,6 @@
         geoDebug.textContent = `Debug: ${geo && geo.error ? geo.error : "unknown"}`;
       }
 
-      function parseManualCoordinates() {
-        const lat = Number(manualLat.value);
-        const lng = Number(manualLng.value);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-          return null;
-        }
-        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-          return null;
-        }
-        return { lat, lng, source: "manual" };
-      }
 
       function severityBadge(severity) {
         const mapClass = {
@@ -609,18 +581,13 @@
         const geo = await getGeolocation();
         latestGeo = geo;
         updateGeoUI(geo);
-        const manual = parseManualCoordinates();
-        const finalGeo = geo.lat !== null && geo.lng !== null ? geo : manual;
+        const finalGeo = geo.lat !== null && geo.lng !== null ? geo : null;
         if (!finalGeo) {
-          setAppStatus("Location capture failed. Allow browser location or enter manual coordinates.", true);
+          setAppStatus("Location capture failed. Please allow browser location access.", true);
           submitBtn.disabled = false;
           submitBtn.setAttribute("aria-busy", "false");
           submitSpinner.classList.add("hidden");
           return;
-        }
-        if (finalGeo.source === "manual") {
-          geoStatus.textContent = "Using manually entered coordinates.";
-          geoCoords.textContent = `${finalGeo.lat.toFixed(5)}, ${finalGeo.lng.toFixed(5)} (manual)`;
         }
 
         const payload = new FormData();
@@ -668,8 +635,6 @@
         if (geo.lat === null || geo.lng === null) {
           setAppStatus("Could not capture location. Please allow location permission in browser.", true);
         } else {
-          manualLat.value = geo.lat.toFixed(6);
-          manualLng.value = geo.lng.toFixed(6);
           setAppStatus("Location captured successfully.");
         }
       });

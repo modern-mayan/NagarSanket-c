@@ -4,6 +4,8 @@ Mobile-first civic hazard triage demo with:
 - Voice + text complaint intake (Hinglish/Hindi/English)
 - Geotag capture on submit
 - Gemini multimodal structured ticket generation
+- Firestore ticket persistence + Cloud Storage image retention
+- Optional Firebase Auth token verification
 - Backend safety rule engine
 - Leaflet municipal dashboard map
 - Stitch-style MCP server tool wrapper
@@ -27,6 +29,8 @@ The sections below map each judging parameter to concrete implementation choices
 frontend/index.html               # Mobile-first Tailwind + Leaflet UI
 backend/civicpulse_core.py        # Schema + Gemini call + Python safety rules
 backend/http_server.py            # FastAPI endpoint for frontend
+backend/persistence.py            # Firestore + Cloud Storage persistence
+backend/auth.py                   # Optional Firebase token verification
 backend/stitch_mcp_server.py      # MCP server tool endpoint
 tests/                            # Rule engine + validation tests
 requirements.txt
@@ -45,6 +49,20 @@ pip install -r requirements.txt
 
 ```powershell
 $env:GOOGLE_API_KEY="YOUR_API_KEY"
+```
+
+4. Firebase/Firestore (recommended for production scoring):
+
+```powershell
+$env:USE_FIRESTORE="true"
+$env:FIREBASE_PROJECT_ID="YOUR_GCP_PROJECT_ID"
+$env:FIREBASE_STORAGE_BUCKET="YOUR_STORAGE_BUCKET"
+```
+
+Optional auth hardening:
+
+```powershell
+$env:ENABLE_FIREBASE_AUTH="true"
 ```
 
 ## Run the web app
@@ -84,16 +102,18 @@ pytest
 - API key is read from environment only, never hardcoded.
 - Image upload validation (MIME allowlist + max size).
 - Coordinate and complaint input validation.
-- Basic rate limiting and secure response headers (`nosniff`, `X-Frame-Options`, `Permissions-Policy`).
+- Basic rate limiting, optional Firebase Auth enforcement, and secure response headers.
 
 3. Efficiency
-- Small payload strategy and bounded in-memory ticket history.
+- Small payload strategy, Firestore persistence, and Cloud Storage for image offloading.
 - Retry logic for transient Gemini/API failures.
 - Client-side pre-validation to reduce bad network calls.
+- Request latency metrics in health endpoint for runtime tuning.
 
 4. Testing
 - Unit tests for rule-engine severity overrides.
 - Validation/parsing tests for unsafe inputs and model-output formatting.
+- API integration tests for success flow + required coordinate validation.
 
 5. Accessibility
 - Mobile-first semantic layout, ARIA tabs, live status updates, keyboard navigation.
@@ -104,9 +124,10 @@ pytest
 - Exactly five hazard classes as required.
 - Mandatory structured JSON ticket schema.
 - Safety override rule engine implemented exactly per spec.
-- Real geotagging with required coordinates (GPS or manual), plus map marker visualization for municipal triage.
+- Real geotagging with required coordinates and map marker visualization for municipal triage.
 
 7. Google Services usage
 - Gemini `generateContent` integration via Google AI Studio API key flow.
 - Structured JSON generation with response schema enforcement.
 - Response trace capture (`modelVersion`, `responseId`, token usage) for auditability.
+- Firebase Firestore and Cloud Storage integration for durable backend records.
